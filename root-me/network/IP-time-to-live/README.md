@@ -1,35 +1,21 @@
-# DNS - zone transfert
+# IP - Time To Live
 
 - **Category:** Network (Root-Me)
 - **Difficulty:** Easy
-- **Objective:** Exploit a misconfigured DNS server to perform a zone transfer (AXFR) and retrieve hidden records or internal domain information.
+- **Objective:** Find the TTL (Time To Live) used to reach the targeted host in an ICMP exchange.
 
 ## 1. Traffic Analysis
-By inspecting the target infrastructure and identifying an open name service on a non-standard port, we analyze the possibility of querying the server for a full copy of its DNS zone database (AXFR).
-- **Domain:** `ch11.challenge01.root-me.org`
-- **Host:** `challenge01.root-me.org`
-- **Port:** `54011`
+By opening the network capture file in Wireshark, we analyze the ICMP exchange to map out the traceroute pattern and identify communication endpoints.
+- **Source IP:** `ch11.challenge01.root-me.org`
+- **Destination IP** `challenge01.root-me.org`
 
 ## 2. Exploitation
-Executing the zone transfer query using native Linux CLI tools:
-- **CLI Command:** Using `dig` with the AXFR query type targeting the specific port and domain:
+Filtering and tracking the incrementing TTL values across the captured packets:
   ```bash
-  dig axfr @challenge01.root-me.org -p 54011 ch11.challenge01.root-me.org```
-- **Extracted Output:**
-~~~bash
-; <<>> DiG 9.18.39-0ubuntu0.22.04.7-Ubuntu <<>> axfr @challenge01.root-me.org -p 54011 ch11.challenge01.root-me.org
-; (2 servers found)
-;; global options: +cmd
-ch11.challenge01.root-me.org. 604800 IN    SOA    ch11.challenge01.root-me.org. root.ch11.challenge01.root-me.org. 2 604800 86400 2419200 604800
-ch11.challenge01.root-me.org. 604800 IN    TXT    "DNS transfer secret key : CBkFRwfNMMtRjHY"
-ch11.challenge01.root-me.org. 604800 IN    NS    ch11.challenge01.root-me.org.
-ch11.challenge01.root-me.org. 604800 IN    A    127.0.0.1
-challenge01.ch11.challenge01.root-me.org. 604800 IN A 192.168.27.101
-ch11.challenge01.root-me.org. 604800 IN    SOA    ch11.challenge01.root-me.org. root.ch11.challenge01.root-me.org. 2 604800 86400 2419200 604800
-~~~
+  ip.dst == 198.173.244.32```
+Observing that the TTL value increments sequentially (1, 2, 3 ...) alongside "Time to Live Exceeded" ICMP messages, indicating a traceroute command execution. Scrolling down to the final packet that successfully reaches the target host.
 
-- **Flag:** `CBkFRwfNMMtRjHY`
+**Flag:** `13`
   
 ## 3. Key Takeaways & Remediation
-- **Vulnerability:** Unrestricted AXFR (Zone Transfer) requests allow any external client to map out internal domain structures, subdomains, and read sensitive records (such as TXT keys).
-- **Remediation:** Restrict DNS zone transfers strictly to authorized secondary/slave name servers (using TSIG or IP ACLs) and disable public AXFR access on primary servers.
+- **Concept:**The Time To Live (TTL) field in IP headers decreases by 1 at each router hop. Diagnostic tools like traceroute leverage this decrementing behavior to map out network paths and determine the number of hops to a destination.
